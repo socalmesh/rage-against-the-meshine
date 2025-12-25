@@ -3,7 +3,7 @@ import { createDiscordMessage } from "./DiscordMessageUtils";
 import meshRedis from "./MeshRedis";
 import logger from "./Logger";
 
-const processTextMessage = async (packetGroup, client, guild, discordMessageIdCache, habChannel, msChannel, lfChannel) => {
+const processTextMessage = async (packetGroup, client, guild, discordMessageIdCache, habChannel, mfChannel, msChannel, lfChannel) => {
   const packet = packetGroup.serviceEnvelopes[0].packet;
   let text = packet.decoded.payload.toString();
   const to = nodeId2hex(packet.to);
@@ -47,6 +47,8 @@ const processTextMessage = async (packetGroup, client, guild, discordMessageIdCa
     }
     if (channelId === "MediumSlow") {
       return msChannel;
+    } else if (channelId === "MediumFast") {
+      return mfChannel;
     } else if (channelId === "LongFast") {
       return lfChannel;
     } else if (channelId === "HAB") {

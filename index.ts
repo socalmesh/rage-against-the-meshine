@@ -41,6 +41,7 @@ const DISCORD_CLIENT_ID = process.env["DISCORD_CLIENT_ID"];
 const DISCORD_TOKEN = process.env["DISCORD_TOKEN"];
 const DISCORD_GUILD = process.env["DISCORD_GUILD"];
 const DISCORD_CHANNEL_LF = process.env["DISCORD_CHANNEL_LF"];
+const DISCORD_CHANNEL_MF = process.env["DISCORD_CHANNEL_MF"];
 const DISCORD_CHANNEL_MS = process.env["DISCORD_CHANNEL_MS"];
 const DISCORD_CHANNEL_HAB = process.env["DISCORD_CHANNEL_HAB"];
 const REDIS_URL = process.env["REDIS_URL"];
@@ -126,6 +127,7 @@ client.once("ready", () => {
   }
 
   const lfChannel = fetchDiscordChannel(guild, DISCORD_CHANNEL_LF);
+  const mfChannel = fetchDiscordChannel(guild, DISCORD_CHANNEL_MF);
   const msChannel = fetchDiscordChannel(guild, DISCORD_CHANNEL_MS);
   const habChannel = fetchDiscordChannel(guild, DISCORD_CHANNEL_HAB);
 
@@ -373,7 +375,7 @@ client.once("ready", () => {
             packetGroup.serviceEnvelopes[0].packet.decoded.payload.toString(),
         );
       }
-      processTextMessage(packetGroup, client, guild, discordMessageIdCache, habChannel, msChannel, lfChannel);
+      processTextMessage(packetGroup, client, guild, discordMessageIdCache, habChannel, mfChannel, msChannel, lfChannel);
     });
   }, 5000);
 
