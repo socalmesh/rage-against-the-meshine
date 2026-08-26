@@ -43,6 +43,7 @@ Rage Against the Meshine is a TypeScript application that bridges Meshtastic mes
 | `DISCORD_CLIENT_ID` | Discord application client ID |
 | `DISCORD_GUILD` | Discord server (guild) ID |
 | `DISCORD_CHANNEL_LF` | Discord channel ID for LongFast modem messages |
+| `DISCORD_CHANNEL_LT` | Discord channel ID for LongTurbo modem messages |
 | `DISCORD_CHANNEL_MF` | Discord channel ID for MediumFast modem messages |
 | `DISCORD_CHANNEL_MS` | Discord channel ID for MediumSlow modem messages |
 | `DISCORD_CHANNEL_HAB` | Discord channel ID for High Altitude Balloon messages |
@@ -68,6 +69,7 @@ Rage Against the Meshine is a TypeScript application that bridges Meshtastic mes
    DISCORD_CLIENT_ID=your_client_id
    DISCORD_GUILD=your_guild_id
    DISCORD_CHANNEL_LF=your_lf_channel_id
+   DISCORD_CHANNEL_LT=your_lt_channel_id
    DISCORD_CHANNEL_MF=your_mf_channel_id
    DISCORD_CHANNEL_MS=your_ms_channel_id
    DISCORD_CHANNEL_HAB=your_hab_channel_id
