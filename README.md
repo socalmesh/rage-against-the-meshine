@@ -101,6 +101,7 @@ Notes:
 | `DISCORD_CLIENT_ID` | Discord client id (legacy fallback) |
 | `DISCORD_GUILD` | Discord guild id (legacy fallback) |
 | `DISCORD_CHANNEL_LF` | LongFast channel id (legacy fallback) |
+| `DISCORD_CHANNEL_LT` | LongTurbo channel id (legacy fallback) |
 | `DISCORD_CHANNEL_MF` | MediumFast channel id (legacy fallback) |
 | `DISCORD_CHANNEL_MS` | MediumSlow channel id (legacy fallback) |
 | `DISCORD_CHANNEL_MF_TEST` | Test channel id (legacy fallback) |
@@ -130,6 +131,7 @@ Notes:
    DISCORD_CLIENT_ID=your_client_id
    DISCORD_GUILD=your_guild_id
    DISCORD_CHANNEL_LF=your_lf_channel_id
+   DISCORD_CHANNEL_LT=your_lt_channel_id
    DISCORD_CHANNEL_MF=your_mf_channel_id
    DISCORD_CHANNEL_MS=your_ms_channel_id
    DISCORD_CHANNEL_HAB=your_hab_channel_id
