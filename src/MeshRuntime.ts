@@ -18,6 +18,7 @@ import { processTextMessage } from "./MessageUtils";
 import { handleMqttMessage } from "./MqttUtils";
 import {
   compileChannelRegexRules,
+  DEFAULT_MESHVIEW_BASE_URL,
   type MeshConfig,
   type MultiMeshConfig,
 } from "./MultiMeshConfig";
@@ -25,9 +26,6 @@ import { createMeshRedis, type MeshRedis } from "./MeshRedis";
 
 const DEFAULT_MQTT_USERNAME = process.env.MQTT_USERNAME || "meshdev";
 const DEFAULT_MQTT_PASSWORD = process.env.MQTT_PASSWORD || "large4cats";
-// socalmesh fork: meshview links point at socalmesh.org unless a mesh, the
-// global config, or MESHVIEW_BASE_URL overrides it. Upstream defaults to "".
-const DEFAULT_MESHVIEW_BASE_URL = "https://meshview.socalmesh.org";
 
 export const startMeshRuntime = async (
   meshConfig: MeshConfig,

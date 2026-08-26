@@ -64,6 +64,12 @@ export type CompiledChannelRegexRule = {
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), "config.json");
 const DEFAULT_SECRETS_PATH = path.resolve(process.cwd(), "secrets.json");
 
+// socalmesh fork: meshview links point at socalmesh.org unless a mesh entry,
+// the global config, or MESHVIEW_BASE_URL overrides it. Upstream leaves this
+// unset, which renders links as "undefined/packet/<id>". No trailing slash —
+// call sites append "/packet/..." and "/packet_list/...".
+export const DEFAULT_MESHVIEW_BASE_URL = "https://meshview.socalmesh.org";
+
 const expandEnvPlaceholders = (value: unknown): unknown => {
   if (typeof value === "string") {
     return value.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name) => {
@@ -242,7 +248,7 @@ const validateConfig = (config: unknown): MultiMeshConfig => {
   return {
     environment: obj.environment,
     redisUrl,
-    meshViewBaseUrl: obj.meshViewBaseUrl,
+    meshViewBaseUrl: obj.meshViewBaseUrl || DEFAULT_MESHVIEW_BASE_URL,
     nodeInfoUpdates: obj.nodeInfoUpdates,
     meshes: obj.meshes.map(validateMeshConfig),
   };
@@ -340,7 +346,8 @@ const buildLegacyConfig = (): MultiMeshConfig => {
 
   return validateConfig({
     environment: process.env.ENVIRONMENT,
-    meshViewBaseUrl: process.env.MESHVIEW_BASE_URL,
+    meshViewBaseUrl:
+      process.env.MESHVIEW_BASE_URL || DEFAULT_MESHVIEW_BASE_URL,
     nodeInfoUpdates: process.env.NODE_INFO_UPDATES === "1",
     meshes: [
       {
