@@ -2,18 +2,30 @@ version: '3.8'
 
 services:
   bot:
-    image: ghcr.io/baymesh/rage-against-the-meshine-nextgen:latest
+    image: ghcr.io/socalmesh/rage-against-the-meshine:latest
+    build: .
     environment:
     - DISCORD_TOKEN=${DISCORD_TOKEN}
     - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
     - DISCORD_GUILD=${DISCORD_GUILD}
     - DISCORD_CHANNEL_LF=${DISCORD_CHANNEL_LF}
     - DISCORD_CHANNEL_LT=${DISCORD_CHANNEL_LT}
-    - DISCORD_CHANNEL_MF=${DISCORD_CHANNEL_MF}
     - DISCORD_CHANNEL_MS=${DISCORD_CHANNEL_MS}
+    - DISCORD_CHANNEL_MF=${DISCORD_CHANNEL_MF}
+    - DISCORD_CHANNEL_MF_TEST=${DISCORD_CHANNEL_MF_TEST}
     - DISCORD_CHANNEL_HAB=${DISCORD_CHANNEL_HAB}
     - MQTT_BROKER_URL=${MQTT_BROKER_URL}
     - MQTT_TOPICS=${MQTT_TOPICS}
-    - REDIS_URL=${REDIS_URL}
+    - REDIS_URL=redis://redis:6379
     - ENVIRONMENT=${ENVIRONMENT}
     - NODE_INFO_UPDATES=${NODE_INFO_UPDATES}
+    - MESH_ID=${MESH_ID:-default}
+    - MESHVIEW_BASE_URL=${MESHVIEW_BASE_URL:-}
+
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+    volumes:
+      - ./data/redis:/data
