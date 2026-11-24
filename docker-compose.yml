@@ -19,6 +19,8 @@ services:
     - REDIS_URL=redis://redis:6379
     - ENVIRONMENT=${ENVIRONMENT}
     - NODE_INFO_UPDATES=${NODE_INFO_UPDATES}
+    - MESH_ID=${MESH_ID:-default}
+    - MESHVIEW_BASE_URL=${MESHVIEW_BASE_URL:-}
 
   redis:
     image: redis/redis-stack:latest

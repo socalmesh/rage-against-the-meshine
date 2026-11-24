@@ -61,6 +61,28 @@ describe("handleMqttMessage", () => {
     expect(meshPacketCacheMock.add).not.toHaveBeenCalled();
   });
 
+  it("matches the parent topic itself for a trailing /# filter", async () => {
+    const exact = "msh/US/CA/socalmesh/2/e/SoCalMesh/!12345678";
+    for (const [topic, expected] of [
+      [exact, 1],
+      [`${exact}/extra`, 1],
+      [`${exact}9`, 0],
+    ] as [string, number][]) {
+      meshPacketCacheMock.add.mockClear();
+      await handleMqttMessage(
+        topic,
+        Buffer.from("payload"),
+        [`${exact}/#`],
+        meshPacketCacheMock as any,
+        nodeInfoPacketCacheMock as any,
+        false,
+        "broker",
+        meshRedisMock as any,
+      );
+      expect(meshPacketCacheMock.add).toHaveBeenCalledTimes(expected);
+    }
+  });
+
   it("adds decoded packets when topic matches", async () => {
     serviceEnvelopeDecodeMock.mockReturnValueOnce({
       packet: { id: 1, encrypted: Buffer.from("x"), decoded: { portnum: 1 } },

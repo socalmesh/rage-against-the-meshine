@@ -184,8 +184,13 @@ describe("loadMultiMeshConfig", () => {
       "msh/EU/#",
     ]);
     expect(loaded.meshes[0].routing.channelRegex).toEqual([
-      expect.objectContaining({ pattern: "LongTurbo", discordChannelId: "456" }),
+      expect.objectContaining({ pattern: "^LongTurbo$", discordChannelId: "456" }),
     ]);
+    const [longTurbo] = compileChannelRegexRules(
+      loaded.meshes[0].routing.channelRegex,
+    );
+    expect(longTurbo.regex.test("LongTurbo")).toBe(true);
+    expect(longTurbo.regex.test("LongTurboDX")).toBe(false);
   });
 
   it("puts DISCORD_CHANNEL_ROUTES ahead of the built-in legacy routes", () => {
