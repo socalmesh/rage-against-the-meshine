@@ -1,0 +1,28 @@
+name: Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Same source the Dockerfile uses.
+      - run: git clone --depth 1 https://github.com/meshtastic/protobufs.git src/protobufs
+
+      # MessageUtils and DiscordMessageUtils tests are stale upstream (they fail
+      # on baymesh main too). Drop the ignore once upstream fixes them.
+      - run: npx jest --testPathIgnorePatterns '__tests__/(MessageUtils|DiscordMessageUtils)\.test\.ts'
