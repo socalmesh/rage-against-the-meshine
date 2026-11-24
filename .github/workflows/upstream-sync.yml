@@ -4,17 +4,19 @@ name: Sync with upstream
 # and opens a pull request. It never pushes to main: a merge to main publishes
 # :latest, which the live bot picks up on its own.
 #
-# The branch is rebuilt from main on every run, so do not fix conflicts on it.
-# When this job fails on a conflict, merge upstream by hand on another branch.
+# Two jobs. "check" merges and runs the tests with a read-only token, because
+# that runs upstream's code. "publish" has write access, runs no project code,
+# redoes the same merge and pushes it to the one fixed branch.
+#
+# The branch belongs to this workflow, so do not fix conflicts on it. When a
+# run fails on a conflict, merge upstream by hand on another branch.
 
 on:
   schedule:
     - cron: "17 15 * * 1" # Mondays, 15:17 UTC
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: upstream-sync
@@ -25,13 +27,22 @@ env:
   SYNC_BRANCH: upstream-sync
 
 jobs:
-  sync:
+  check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.merge.outputs.changed }}
+      main_sha: ${{ steps.merge.outputs.main_sha }}
+      upstream_sha: ${{ steps.merge.outputs.upstream_sha }}
+      count: ${{ steps.merge.outputs.count }}
+      tests: ${{ steps.test.outcome }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Merge upstream
         id: merge
@@ -47,9 +58,21 @@ jobs:
             exit 0
           fi
 
-          echo "count=$(git rev-list --count HEAD..upstream/main)" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse --short upstream/main)" >> "$GITHUB_OUTPUT"
-          git checkout --quiet -B "$SYNC_BRANCH"
+          # A sync from an earlier run that already holds both tips is left
+          # alone, so an open pull request is not rebuilt every week.
+          if git fetch --quiet origin "$SYNC_BRANCH" 2>/dev/null \
+            && git merge-base --is-ancestor HEAD FETCH_HEAD \
+            && git merge-base --is-ancestor upstream/main FETCH_HEAD; then
+            echo "The $SYNC_BRANCH branch already holds this sync. Nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          {
+            echo "main_sha=$(git rev-parse HEAD)"
+            echo "upstream_sha=$(git rev-parse upstream/main)"
+            echo "count=$(git rev-list --count HEAD..upstream/main)"
+          } >> "$GITHUB_OUTPUT"
 
           if ! git merge --no-edit upstream/main; then
             {
@@ -65,7 +88,7 @@ jobs:
           if ! git diff --quiet origin/main HEAD -- .github/workflows; then
             {
               echo "### Upstream changed workflow files"
-              echo "This job's token cannot push changes under .github/workflows. Merge upstream main by hand."
+              echo "This workflow's token cannot push changes under .github/workflows. Merge upstream main by hand."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
@@ -77,8 +100,9 @@ jobs:
         with:
           node-version: 20
 
-      # A pull request opened by this job does not start the Tests workflow,
-      # so the tests run here and the result goes in the pull request text.
+      # A pull request opened by this workflow does not start the Tests
+      # workflow on its own, so the tests run here and the result goes in the
+      # pull request text.
       - name: Test the merged code
         id: test
         if: steps.merge.outputs.changed == 'true'
@@ -88,17 +112,56 @@ jobs:
           git clone --depth 1 https://github.com/meshtastic/protobufs.git src/protobufs
           npx jest --testPathIgnorePatterns '__tests__/(MessageUtils|DiscordMessageUtils)\.test\.ts'
 
-      - name: Push the branch and open a pull request
-        if: steps.merge.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          COUNT: ${{ steps.merge.outputs.count }}
-          SHA: ${{ steps.merge.outputs.sha }}
-          TESTS: ${{ steps.test.outcome }}
-        run: |
-          git push --force origin "$SYNC_BRANCH"
+  publish:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      OWNER: ${{ github.repository_owner }}
+      MAIN_SHA: ${{ needs.check.outputs.main_sha }}
+      UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
+      COUNT: ${{ needs.check.outputs.count }}
+      TESTS: ${{ needs.check.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
-          body="Merges $COUNT new upstream commit(s), up to baymesh \`$SHA\`. Opened by the Sync with upstream workflow.
+      # Nothing from the merged tree is run in this job.
+      - name: Redo the merge and push the branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch --quiet upstream main
+
+          if [ "$(git rev-parse HEAD)" != "$MAIN_SHA" ] || [ "$(git rev-parse upstream/main)" != "$UPSTREAM_SHA" ]; then
+            echo "main or upstream moved while the tests ran. Run the workflow again." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          git checkout --quiet -B "$SYNC_BRANCH"
+          git merge --no-edit upstream/main
+          if ! git diff --quiet origin/main HEAD -- .github/workflows; then
+            echo "Upstream changed workflow files; refusing to push." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # Replace the branch only if it is still what it was a moment ago.
+          old="$(git ls-remote origin "refs/heads/$SYNC_BRANCH" | cut -f1)"
+          git push --force-with-lease="refs/heads/$SYNC_BRANCH:$old" origin "HEAD:refs/heads/$SYNC_BRANCH"
+
+      - name: Open or update the pull request
+        run: |
+          short="${UPSTREAM_SHA:0:7}"
+          title="Sync with upstream ($short)"
+          body="Merges $COUNT new upstream commit(s), up to baymesh \`$short\`. Opened by the Sync with upstream workflow.
 
           Tests on the merged code, run by that workflow: **$TESTS**.
 
@@ -106,11 +169,15 @@ jobs:
 
           Merge with a merge commit, not a squash, so the next sync still knows what has been merged."
 
-          number="$(gh pr list --head "$SYNC_BRANCH" --base main --state open --json number --jq '.[0].number')"
+          # Only a pull request from this repository's own branch counts.
+          number="$(gh pr list --head "$SYNC_BRANCH" --base main --state open \
+            --json number,headRepositoryOwner,isCrossRepository \
+            --jq "[.[] | select(.isCrossRepository == false and .headRepositoryOwner.login == \"$OWNER\")][0].number // empty")"
+
           if [ -n "$number" ]; then
-            gh pr edit "$number" --body "$body"
+            gh pr edit "$number" --title "$title" --body "$body"
             echo "Updated pull request #$number." >> "$GITHUB_STEP_SUMMARY"
-          elif gh pr create --base main --head "$SYNC_BRANCH" --title "Sync with upstream ($SHA)" --body "$body"; then
+          elif gh pr create --base main --head "$SYNC_BRANCH" --title "$title" --body "$body"; then
             echo "Opened a pull request." >> "$GITHUB_STEP_SUMMARY"
           else
             {
@@ -122,5 +189,5 @@ jobs:
           fi
 
       - name: Fail if the tests failed
-        if: steps.merge.outputs.changed == 'true' && steps.test.outcome == 'failure'
+        if: needs.check.outputs.tests == 'failure'
         run: exit 1
