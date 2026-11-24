@@ -85,6 +85,7 @@ secrets.json (example):
 
 Notes:
 - CONFIG_PATH and SECRETS_PATH can override default file locations.
+- A channel with its own key is decrypted only when its name is in CHANNEL_KEYS, and only with that key. Routing it to Discord is a separate step: add a routing rule for the same name.
 - Routing rules are regex matches against Meshtastic channelId. First match wins.
 - meshViewBaseUrl is set per mesh to generate links.
 
@@ -110,6 +111,8 @@ Notes:
 | `ENVIRONMENT` | Deployment environment (production or development) |
 | `NODE_INFO_UPDATES` | Enable node info updates (1 or 0) |
 | `MESHVIEW_BASE_URL` | Meshview base URL (legacy fallback) |
+| `DISCORD_CHANNEL_ROUTES` | Extra routes for the legacy fallback, as a JSON array of `{ "pattern", "discordChannelId" }`. Checked before the built-in routes |
+| `CHANNEL_KEYS` | JSON object of channel name to base64 key, for channels with their own 16 or 32 byte key |
 
 ### Installation
 

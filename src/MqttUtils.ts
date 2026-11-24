@@ -77,7 +77,7 @@ const handleMqttMessage = async (
         ) {
           const isEncrypted = envelope.packet.encrypted?.length > 0;
           if (isEncrypted) {
-            const decoded = decrypt(envelope.packet);
+            const decoded = decrypt(envelope.packet, envelope.channelId);
             if (decoded) {
               envelope.packet.decoded = decoded;
             }
