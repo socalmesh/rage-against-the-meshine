@@ -359,8 +359,7 @@ const buildLegacyConfig = (): MultiMeshConfig => {
     }
   }
 
-  const channelRegex = [
-    ...extraRoutes,
+  const builtInRoutes = [
     { pattern: "LongFast", discordChannelId: process.env.DISCORD_CHANNEL_LF },
     // Anchored: the 2.x fork matched this name exactly.
     { pattern: "^LongTurbo$", discordChannelId: process.env.DISCORD_CHANNEL_LT },
@@ -368,7 +367,10 @@ const buildLegacyConfig = (): MultiMeshConfig => {
     { pattern: "MediumSlow", discordChannelId: process.env.DISCORD_CHANNEL_MS },
     { pattern: "^Test$", discordChannelId: process.env.DISCORD_CHANNEL_MF_TEST },
     { pattern: "HAB", discordChannelId: process.env.DISCORD_CHANNEL_HAB },
-  ].filter((rule) => rule && rule.discordChannelId);
+  ].filter((rule) => rule.discordChannelId);
+  // Extra routes are not filtered: a broken one must fail validation, not
+  // vanish.
+  const channelRegex = [...extraRoutes, ...builtInRoutes];
 
   if (channelRegex.length === 0) {
     throw new Error("No Discord channel mappings found in environment");

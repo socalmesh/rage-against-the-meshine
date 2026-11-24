@@ -3,6 +3,7 @@ import crypto from "crypto";
 
 import logger from "./src/Logger";
 import { loadMultiMeshConfig } from "./src/config";
+import { loadChannelKeys } from "./src/decrypt";
 import { startMeshRuntime } from "./src/MeshRuntime";
 import { Data, ServiceEnvelope, Position, User } from "./src/Protobufs";
 import CrossMeshPacketCache from "./src/CrossMeshPacketCache";
@@ -17,6 +18,8 @@ logger.init(INSTANCE_ID);
 logger.info("Starting Mesh Logger");
 
 const config = loadMultiMeshConfig();
+// Fail here, not on the first packet, if CHANNEL_KEYS is wrong.
+loadChannelKeys();
 if (config.environment) {
   process.env.ENVIRONMENT = config.environment;
 }

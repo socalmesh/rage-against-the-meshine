@@ -21,6 +21,8 @@ services:
     - NODE_INFO_UPDATES=${NODE_INFO_UPDATES}
     - MESH_ID=${MESH_ID:-default}
     - MESHVIEW_BASE_URL=${MESHVIEW_BASE_URL:-}
+    - CHANNEL_KEYS=${CHANNEL_KEYS:-}
+    - DISCORD_CHANNEL_ROUTES=${DISCORD_CHANNEL_ROUTES:-}
 
   redis:
     image: redis/redis-stack:latest

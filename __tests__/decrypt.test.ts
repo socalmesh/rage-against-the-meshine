@@ -81,21 +81,71 @@ describe("decrypt", () => {
   });
 });
 
+describe("decrypt, independent vector", () => {
+  // Ciphertext made with `openssl enc -aes-256-ctr`, key 00 01 .. 1f, for
+  // packet id 0x1234abcd from 0xdeadbeef. Longer than one AES block.
+  it("matches OpenSSL for a multi-block AES-256 packet", () => {
+    jest.resetModules();
+    process.env.CHANNEL_KEYS = JSON.stringify({
+      Vector: Buffer.from(Array.from({ length: 32 }, (_, i) => i)).toString("base64"),
+    });
+    const fresh = require("../src/decrypt");
+    const decoded = fresh.decrypt(
+      {
+        id: PACKET_ID,
+        from: FROM,
+        encrypted: Buffer.from(
+          "50bcb1ac42cf21b1a5712c1345233df6c3088c4add1e8e12c2893b41c4b506d75fc33600e96cae92dba3048a68fd0cfd4b0e3fd3e9d7c5",
+          "hex",
+        ),
+      },
+      "Vector",
+    );
+    expect(textOf(decoded)).toBe(
+      "independent vector: more than one AES block of text",
+    );
+  });
+});
+
 describe("parseChannelKeys", () => {
-  it("skips bad entries and keeps good ones", () => {
+  const good = KEY_256.toString("base64");
+
+  it("accepts 16 and 32 byte keys, padded or not", () => {
     const keys = parseChannelKeys(
       JSON.stringify({
-        Good: KEY_256.toString("base64"),
-        Short: "AQ==",
-        NotAString: 5,
+        A: good,
+        B: KEY_256.toString("base64url"),
+        C: DEFAULT_KEY.toString("base64"),
       }),
     );
-    expect(Array.from(keys.keys())).toEqual(["Good"]);
+    expect(keys.get("A")).toEqual(KEY_256);
+    expect(keys.get("B")).toEqual(KEY_256);
+    expect(keys.get("C")).toEqual(DEFAULT_KEY);
   });
 
-  it("returns nothing for missing, malformed or non-object input", () => {
+  it("returns nothing when unset", () => {
     expect(parseChannelKeys(undefined).size).toBe(0);
-    expect(parseChannelKeys("not-json").size).toBe(0);
-    expect(parseChannelKeys("[]").size).toBe(0);
+    expect(parseChannelKeys("  ").size).toBe(0);
+  });
+
+  it("throws on a bad entry instead of leaving that channel on the default keys", () => {
+    for (const bad of ["AQ==", 5, `${good}trailing`, `${good} `, ""]) {
+      expect(() =>
+        parseChannelKeys(JSON.stringify({ Good: good, Bad: bad })),
+      ).toThrow("key for channel 'Bad'");
+    }
+  });
+
+  it("throws on malformed or non-object input without echoing it", () => {
+    const unquoted = `{"SoCalMesh": ${good}}`;
+    let message = "";
+    try {
+      parseChannelKeys(unquoted);
+    } catch (err) {
+      message = String(err);
+    }
+    expect(message).toContain("CHANNEL_KEYS is not valid JSON");
+    expect(message).not.toContain(good.slice(0, 6));
+    expect(() => parseChannelKeys("[]")).toThrow("must be a JSON object");
   });
 });

@@ -30,7 +30,11 @@ const cipherForKey = (key: Buffer) => {
  * Parse CHANNEL_KEYS: a JSON object of channel name -> base64 key, for
  * channels that have their own key (16 bytes = AES-128, 32 bytes = AES-256).
  * The key may be standard or URL-safe base64, as found in a Meshtastic
- * channel link. A bad entry is logged and skipped, never fatal.
+ * channel link.
+ *
+ * Anything wrong throws. Skipping a bad entry would leave that channel on the
+ * shared default keys while its Discord route stays live. The messages never
+ * include the input, because it holds keys.
  */
 const parseChannelKeys = (raw: string | undefined) => {
   const keys = new Map<string, Buffer>();
@@ -41,32 +45,38 @@ const parseChannelKeys = (raw: string | undefined) => {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    logger.error(`CHANNEL_KEYS is not valid JSON, ignoring it: ${String(err)}`);
-    return keys;
+    throw new Error("CHANNEL_KEYS is not valid JSON");
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    logger.error("CHANNEL_KEYS must be a JSON object of name -> base64 key");
-    return keys;
+    throw new Error("CHANNEL_KEYS must be a JSON object of name -> base64 key");
   }
   for (const [name, value] of Object.entries(parsed)) {
-    const key =
-      typeof value === "string"
-        ? Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64")
-        : Buffer.alloc(0);
-    if (!cipherForKey(key)) {
-      logger.error(
-        `CHANNEL_KEYS: key for channel '${name}' must be 16 or 32 bytes of base64, ignoring it`,
+    const encoded =
+      typeof value === "string" ? value.replace(/=+$/, "") : "";
+    // 16 bytes is 22 base64 characters without padding, 32 bytes is 43.
+    if (
+      !/^[A-Za-z0-9+/_-]+$/.test(encoded) ||
+      (encoded.length !== 22 && encoded.length !== 43)
+    ) {
+      throw new Error(
+        `CHANNEL_KEYS: the key for channel '${name}' must be 16 or 32 bytes of base64`,
       );
-      continue;
     }
-    keys.set(name, key);
+    keys.set(
+      name,
+      Buffer.from(encoded.replace(/-/g, "+").replace(/_/g, "/"), "base64"),
+    );
   }
   return keys;
 };
 
-// Read on first use, not at import, so the logger is initialised by then.
 let channelKeys: Map<string, Buffer> | null = null;
-const getChannelKeys = () => {
+
+/**
+ * Load CHANNEL_KEYS. Called once at startup so a bad value stops the bot
+ * there; decrypt() also calls it, for anything that skips startup.
+ */
+const loadChannelKeys = () => {
   if (!channelKeys) {
     channelKeys = parseChannelKeys(process.env.CHANNEL_KEYS);
     if (channelKeys.size > 0) {
@@ -106,7 +116,7 @@ function decrypt(packet, channelId?: string) {
   // that parse. A channel with its own key is therefore tried with that key
   // only, picked by the channel name on the MQTT envelope; every other
   // channel gets the shared default keys.
-  const channelKey = channelId ? getChannelKeys().get(channelId) : undefined;
+  const channelKey = channelId ? loadChannelKeys().get(channelId) : undefined;
   const keys = channelKey ? [channelKey] : decryptionKeys;
 
   for (const key of keys) {
@@ -137,4 +147,4 @@ function decrypt(packet, channelId?: string) {
   return null;
 }
 
-export { decrypt, parseChannelKeys };
+export { decrypt, parseChannelKeys, loadChannelKeys };
