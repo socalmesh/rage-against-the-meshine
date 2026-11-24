@@ -51,23 +51,27 @@ const parseChannelKeys = (raw: string | undefined) => {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("CHANNEL_KEYS must be a JSON object of name -> base64 key");
   }
-  for (const [name, value] of Object.entries(parsed)) {
-    const encoded =
-      typeof value === "string" ? value.replace(/=+$/, "") : "";
-    // 16 bytes is 22 base64 characters without padding, 32 bytes is 43.
-    if (
-      !/^[A-Za-z0-9+/_-]+$/.test(encoded) ||
-      (encoded.length !== 22 && encoded.length !== 43)
-    ) {
-      throw new Error(
-        `CHANNEL_KEYS: the key for channel '${name}' must be 16 or 32 bytes of base64`,
-      );
-    }
-    keys.set(
-      name,
-      Buffer.from(encoded.replace(/-/g, "+").replace(/_/g, "/"), "base64"),
+  Object.entries(parsed).forEach(([name, value], index) => {
+    // Entries are named by position: a name and key swapped by mistake would
+    // otherwise put the key in the error.
+    const bad = new Error(
+      `CHANNEL_KEYS: entry ${index + 1} must have a key of 16 or 32 bytes in base64`,
     );
-  }
+    if (typeof value !== "string") {
+      throw bad;
+    }
+    const standard = value.replace(/-/g, "+").replace(/_/g, "/");
+    const key = Buffer.from(standard, "base64");
+    const canonical = key.toString("base64");
+    // Only the exact encoding of the bytes passes, with or without padding.
+    if (
+      !cipherForKey(key) ||
+      (standard !== canonical && standard !== canonical.replace(/=+$/, ""))
+    ) {
+      throw bad;
+    }
+    keys.set(name, key);
+  });
   return keys;
 };
 

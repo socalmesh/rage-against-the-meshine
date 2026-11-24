@@ -2,7 +2,10 @@ import crypto from "crypto";
 
 // Fixed keys, so the wrong-key cases below give the same result every run.
 const KEY_256 = Buffer.from(Array.from({ length: 32 }, (_, i) => 0xa0 + i));
-const OTHER_KEY_256 = Buffer.from(Array.from({ length: 32 }, (_, i) => 0x40 + i));
+// 0xfb 0xef 0xff ... encodes with both "-" and "_" in URL-safe base64.
+const OTHER_KEY_256 = Buffer.from(
+  Array.from({ length: 32 }, (_, i) => [0xfb, 0xef, 0xff][i % 3]),
+);
 const DEFAULT_KEY = Buffer.from("1PG7OiApB1nwvP+rz05pAQ==", "base64");
 
 process.env.CHANNEL_KEYS = JSON.stringify({
@@ -129,12 +132,44 @@ describe("parseChannelKeys", () => {
     expect(parseChannelKeys("  ").size).toBe(0);
   });
 
+  it("accepts a URL-safe key that uses both - and _", () => {
+    const urlSafe = OTHER_KEY_256.toString("base64url");
+    expect(urlSafe).toMatch(/-/);
+    expect(urlSafe).toMatch(/_/);
+    expect(parseChannelKeys(JSON.stringify({ A: urlSafe })).get("A")).toEqual(
+      OTHER_KEY_256,
+    );
+  });
+
   it("throws on a bad entry instead of leaving that channel on the default keys", () => {
-    for (const bad of ["AQ==", 5, `${good}trailing`, `${good} `, ""]) {
+    const unpadded = good.replace(/=+$/, "");
+    const lastChar = unpadded[unpadded.length - 1];
+    const nonCanonical =
+      unpadded.slice(0, -1) + (lastChar === "B" ? "C" : "B");
+    for (const bad of [
+      "AQ==",
+      5,
+      `${good}trailing`,
+      `${good} `,
+      "",
+      `${unpadded}===`,
+      nonCanonical,
+    ]) {
       expect(() =>
         parseChannelKeys(JSON.stringify({ Good: good, Bad: bad })),
-      ).toThrow("key for channel 'Bad'");
+      ).toThrow("CHANNEL_KEYS: entry 2");
     }
+  });
+
+  it("does not put a key in the error when name and key are swapped", () => {
+    let message = "";
+    try {
+      parseChannelKeys(JSON.stringify({ [good]: "SoCalMesh" }));
+    } catch (err) {
+      message = String(err);
+    }
+    expect(message).toContain("CHANNEL_KEYS: entry 1");
+    expect(message).not.toContain(good.slice(0, 6));
   });
 
   it("throws on malformed or non-object input without echoing it", () => {
