@@ -188,6 +188,52 @@ describe("loadMultiMeshConfig", () => {
     ]);
   });
 
+  it("puts DISCORD_CHANNEL_ROUTES ahead of the built-in legacy routes", () => {
+    process.env.CONFIG_PATH = path.join(os.tmpdir(), "missing-config.json");
+    process.env.SECRETS_PATH = path.join(os.tmpdir(), "missing-secrets.json");
+
+    process.env.REDIS_URL = "redis://localhost:6379";
+    process.env.MQTT_BROKER_URL = "mqtt://localhost:1883";
+    process.env.MQTT_TOPICS = JSON.stringify(["msh/US/#"]);
+    process.env.DISCORD_TOKEN = "token";
+    process.env.DISCORD_CLIENT_ID = "client";
+    process.env.DISCORD_GUILD = "guild";
+    process.env.DISCORD_CHANNEL_LT = "456";
+    process.env.DISCORD_CHANNEL_ROUTES = JSON.stringify([
+      { pattern: "^SoCalMesh$", discordChannelId: "456" },
+      { pattern: "^SoCalAlerts$", discordChannelId: "789" },
+    ]);
+
+    const loaded = loadMultiMeshConfig();
+
+    expect(
+      loaded.meshes[0].routing.channelRegex.map((rule) => [
+        rule.pattern,
+        rule.discordChannelId,
+      ]),
+    ).toEqual([
+      ["^SoCalMesh$", "456"],
+      ["^SoCalAlerts$", "789"],
+      ["LongTurbo", "456"],
+    ]);
+  });
+
+  it("throws on malformed DISCORD_CHANNEL_ROUTES in legacy env config", () => {
+    process.env.CONFIG_PATH = path.join(os.tmpdir(), "missing-config.json");
+    process.env.SECRETS_PATH = path.join(os.tmpdir(), "missing-secrets.json");
+
+    process.env.REDIS_URL = "redis://localhost:6379";
+    process.env.MQTT_BROKER_URL = "mqtt://localhost:1883";
+    process.env.MQTT_TOPICS = JSON.stringify(["msh/US/#"]);
+    process.env.DISCORD_TOKEN = "token";
+    process.env.DISCORD_CLIENT_ID = "client";
+    process.env.DISCORD_GUILD = "guild";
+    process.env.DISCORD_CHANNEL_LT = "456";
+    process.env.DISCORD_CHANNEL_ROUTES = "{";
+
+    expect(() => loadMultiMeshConfig()).toThrow("Malformed DISCORD_CHANNEL_ROUTES");
+  });
+
   it("throws on malformed MQTT_TOPICS in legacy env config", () => {
     process.env.CONFIG_PATH = path.join(os.tmpdir(), "missing-config.json");
     process.env.SECRETS_PATH = path.join(os.tmpdir(), "missing-secrets.json");

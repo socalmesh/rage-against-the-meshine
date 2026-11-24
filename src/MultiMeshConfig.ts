@@ -341,14 +341,33 @@ const buildLegacyConfig = (): MultiMeshConfig => {
   );
   const meshId = process.env.MESH_ID || "default";
 
+  // Extra routes for channels the built-in list below does not know, as a JSON
+  // array of { pattern, discordChannelId }. They go first, and first match wins.
+  let extraRoutes = [];
+  if (process.env.DISCORD_CHANNEL_ROUTES) {
+    try {
+      extraRoutes = JSON.parse(process.env.DISCORD_CHANNEL_ROUTES);
+    } catch (err) {
+      throw new Error(
+        `Malformed DISCORD_CHANNEL_ROUTES environment variable: ${String(err)}`,
+      );
+    }
+    if (!Array.isArray(extraRoutes)) {
+      throw new Error(
+        "DISCORD_CHANNEL_ROUTES environment variable must be a JSON array",
+      );
+    }
+  }
+
   const channelRegex = [
+    ...extraRoutes,
     { pattern: "LongFast", discordChannelId: process.env.DISCORD_CHANNEL_LF },
     { pattern: "LongTurbo", discordChannelId: process.env.DISCORD_CHANNEL_LT },
     { pattern: "MediumFast", discordChannelId: process.env.DISCORD_CHANNEL_MF },
     { pattern: "MediumSlow", discordChannelId: process.env.DISCORD_CHANNEL_MS },
     { pattern: "^Test$", discordChannelId: process.env.DISCORD_CHANNEL_MF_TEST },
     { pattern: "HAB", discordChannelId: process.env.DISCORD_CHANNEL_HAB },
-  ].filter((rule) => rule.discordChannelId);
+  ].filter((rule) => rule && rule.discordChannelId);
 
   if (channelRegex.length === 0) {
     throw new Error("No Discord channel mappings found in environment");
