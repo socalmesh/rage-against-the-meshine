@@ -1,0 +1,126 @@
+name: Sync with upstream
+
+# Merges baymesh/rage-against-the-meshine main into the "upstream-sync" branch
+# and opens a pull request. It never pushes to main: a merge to main publishes
+# :latest, which the live bot picks up on its own.
+#
+# The branch is rebuilt from main on every run, so do not fix conflicts on it.
+# When this job fails on a conflict, merge upstream by hand on another branch.
+
+on:
+  schedule:
+    - cron: "17 15 * * 1" # Mondays, 15:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_URL: https://github.com/baymesh/rage-against-the-meshine.git
+  SYNC_BRANCH: upstream-sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge upstream
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch --quiet upstream main
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "main already has everything upstream has." >> "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "count=$(git rev-list --count HEAD..upstream/main)" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short upstream/main)" >> "$GITHUB_OUTPUT"
+          git checkout --quiet -B "$SYNC_BRANCH"
+
+          if ! git merge --no-edit upstream/main; then
+            {
+              echo "### Upstream does not merge cleanly"
+              echo "Merge upstream main by hand. Conflicted files:"
+              echo '```'
+              git diff --name-only --diff-filter=U
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          if ! git diff --quiet origin/main HEAD -- .github/workflows; then
+            {
+              echo "### Upstream changed workflow files"
+              echo "This job's token cannot push changes under .github/workflows. Merge upstream main by hand."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.merge.outputs.changed == 'true'
+        with:
+          node-version: 20
+
+      # A pull request opened by this job does not start the Tests workflow,
+      # so the tests run here and the result goes in the pull request text.
+      - name: Test the merged code
+        id: test
+        if: steps.merge.outputs.changed == 'true'
+        continue-on-error: true
+        run: |
+          npm ci
+          git clone --depth 1 https://github.com/meshtastic/protobufs.git src/protobufs
+          npx jest --testPathIgnorePatterns '__tests__/(MessageUtils|DiscordMessageUtils)\.test\.ts'
+
+      - name: Push the branch and open a pull request
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COUNT: ${{ steps.merge.outputs.count }}
+          SHA: ${{ steps.merge.outputs.sha }}
+          TESTS: ${{ steps.test.outcome }}
+        run: |
+          git push --force origin "$SYNC_BRANCH"
+
+          body="Merges $COUNT new upstream commit(s), up to baymesh \`$SHA\`. Opened by the Sync with upstream workflow.
+
+          Tests on the merged code, run by that workflow: **$TESTS**.
+
+          Merging this publishes \`:latest\`, and the live bot picks that up at its next image update. Read the upstream changes first.
+
+          Merge with a merge commit, not a squash, so the next sync still knows what has been merged."
+
+          number="$(gh pr list --head "$SYNC_BRANCH" --base main --state open --json number --jq '.[0].number')"
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --body "$body"
+            echo "Updated pull request #$number." >> "$GITHUB_STEP_SUMMARY"
+          elif gh pr create --base main --head "$SYNC_BRANCH" --title "Sync with upstream ($SHA)" --body "$body"; then
+            echo "Opened a pull request." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Branch pushed, but the pull request could not be opened"
+              echo "Turn on Settings > Actions > General > Allow GitHub Actions to create and approve pull requests, or open it by hand:"
+              echo "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$SYNC_BRANCH"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Fail if the tests failed
+        if: steps.merge.outputs.changed == 'true' && steps.test.outcome == 'failure'
+        run: exit 1
