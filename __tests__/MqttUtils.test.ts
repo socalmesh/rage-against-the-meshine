@@ -78,6 +78,8 @@ describe("handleMqttMessage", () => {
         false,
         "broker",
         meshRedisMock as any,
+        { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as any,
+        "mesh",
       );
       expect(meshPacketCacheMock.add).toHaveBeenCalledTimes(expected);
     }
