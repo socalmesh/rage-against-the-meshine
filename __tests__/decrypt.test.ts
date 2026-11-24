@@ -1,12 +1,13 @@
 import crypto from "crypto";
 
-const KEY_256 = crypto.randomBytes(32);
-const OTHER_KEY_256 = crypto.randomBytes(32);
+// Fixed keys, so the wrong-key cases below give the same result every run.
+const KEY_256 = Buffer.from(Array.from({ length: 32 }, (_, i) => 0xa0 + i));
+const OTHER_KEY_256 = Buffer.from(Array.from({ length: 32 }, (_, i) => 0x40 + i));
 const DEFAULT_KEY = Buffer.from("1PG7OiApB1nwvP+rz05pAQ==", "base64");
 
 process.env.CHANNEL_KEYS = JSON.stringify({
   SoCalMesh: KEY_256.toString("base64"),
-  // URL-safe base64 without padding, the form a channel link carries.
+  // URL-safe base64 without padding.
   SoCalAlerts: OTHER_KEY_256.toString("base64url"),
 });
 
@@ -64,9 +65,9 @@ describe("decrypt", () => {
 
   it("does not read a keyed channel's packet under another channel name", () => {
     const packet = encrypt(KEY_256, "hello socal");
-    expect(textOf(decrypt(packet, "LongTurbo"))).not.toBe("hello socal");
-    expect(textOf(decrypt(packet, "SoCalAlerts"))).not.toBe("hello socal");
-    expect(textOf(decrypt(packet))).not.toBe("hello socal");
+    expect(textOf(decrypt(packet, "LongTurbo"))).toBeNull();
+    expect(textOf(decrypt(packet, "SoCalAlerts"))).toBeNull();
+    expect(textOf(decrypt(packet))).toBeNull();
   });
 
   it("still decrypts default-key channels", () => {
@@ -77,7 +78,7 @@ describe("decrypt", () => {
 
   it("uses only the channel's own key for a keyed channel", () => {
     const packet = encrypt(DEFAULT_KEY, "public");
-    expect(textOf(decrypt(packet, "SoCalMesh"))).not.toBe("public");
+    expect(textOf(decrypt(packet, "SoCalMesh"))).toBeNull();
   });
 });
 

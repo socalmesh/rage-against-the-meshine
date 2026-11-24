@@ -29,8 +29,9 @@ const cipherForKey = (key: Buffer) => {
 /**
  * Parse CHANNEL_KEYS: a JSON object of channel name -> base64 key, for
  * channels that have their own key (16 bytes = AES-128, 32 bytes = AES-256).
- * The key may be standard or URL-safe base64, as found in a Meshtastic
- * channel link.
+ * The value is the channel's raw PSK in standard or URL-safe base64, as the
+ * Meshtastic apps show it. It is not the add-channel link, which encodes a
+ * whole ChannelSet.
  *
  * Anything wrong throws. Skipping a bad entry would leave that channel on the
  * shared default keys while its Discord route stays live. The messages never
