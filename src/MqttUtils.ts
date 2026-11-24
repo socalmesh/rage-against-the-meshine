@@ -27,7 +27,8 @@ const matchesTopic = (topic: string, pattern: string) => {
       return escapeRegex(part);
     })
     .join("/");
-  const regex = new RegExp(`^${regexPattern}$`);
+  // In MQTT a trailing "/#" also matches the parent topic itself.
+  const regex = new RegExp(`^${regexPattern.replace(/\/\.\*$/, "(/.*)?")}$`);
   return regex.test(topic);
 };
 

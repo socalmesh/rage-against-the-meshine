@@ -343,7 +343,8 @@ const buildLegacyConfig = (): MultiMeshConfig => {
 
   const channelRegex = [
     { pattern: "LongFast", discordChannelId: process.env.DISCORD_CHANNEL_LF },
-    { pattern: "LongTurbo", discordChannelId: process.env.DISCORD_CHANNEL_LT },
+    // Anchored: the 2.x fork matched this name exactly.
+    { pattern: "^LongTurbo$", discordChannelId: process.env.DISCORD_CHANNEL_LT },
     { pattern: "MediumFast", discordChannelId: process.env.DISCORD_CHANNEL_MF },
     { pattern: "MediumSlow", discordChannelId: process.env.DISCORD_CHANNEL_MS },
     { pattern: "^Test$", discordChannelId: process.env.DISCORD_CHANNEL_MF_TEST },
