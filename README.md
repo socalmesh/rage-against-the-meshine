@@ -120,8 +120,8 @@ Notes:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/baymesh/rage-against-the-meshine-nextgen.git
-   cd rage-against-the-meshine-nextgen
+   git clone https://github.com/socalmesh/rage-against-the-meshine.git
+   cd rage-against-the-meshine
    ```
 
 2. Create config.json and secrets.json:
@@ -137,8 +137,8 @@ Notes:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/baymesh/rage-against-the-meshine-nextgen.git
-   cd rage-against-the-meshine-nextgen
+   git clone https://github.com/socalmesh/rage-against-the-meshine.git
+   cd rage-against-the-meshine
    ```
 
 2. Clone the Meshtastic protobufs repository:
