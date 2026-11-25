@@ -276,6 +276,9 @@ export const createDiscordMessage = async (
               : `${hop} hops`;
 
         const lines = groups[hop];
+        // Count the separator at its real length: " | " is three characters,
+        // and a field value over 1024 makes Discord reject the whole message.
+        const separator = hop === "0" ? "\n" : " | ";
         let currentChunk = "";
         let fieldIndex = 0;
 
@@ -284,7 +287,7 @@ export const createDiscordMessage = async (
           if (
             currentChunk.length +
               safeLine.length +
-              (currentChunk.length > 0 ? 1 : 0) >
+              (currentChunk.length > 0 ? separator.length : 0) >
             1024
           ) {
             gatewayFields.push({
@@ -297,7 +300,7 @@ export const createDiscordMessage = async (
           } else {
             currentChunk =
               currentChunk.length > 0
-                ? currentChunk + (hop === "0" ? "\n" : " | ") + safeLine
+                ? currentChunk + separator + safeLine
                 : safeLine;
           }
         });
